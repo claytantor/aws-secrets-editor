@@ -1,6 +1,86 @@
 import { useState, useEffect, useRef } from 'react'
+import ReactMarkdown from 'react-markdown'
 import CopyButton from './CopyButton.jsx'
 import PasswordField from './PasswordField.jsx'
+
+const NOTES_MODES = ['text', 'markdown', 'preview']
+
+function NotesField({ value, onChange, changed }) {
+  const [mode, setMode] = useState('text')
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <label className="text-xs font-medium text-gray-400">Notes</label>
+        <div className="flex items-center bg-gray-800 border border-gray-700 rounded-md overflow-hidden">
+          {NOTES_MODES.map(m => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={`px-2.5 py-0.5 text-xs capitalize transition-colors
+                ${mode === m
+                  ? 'bg-gray-700 text-gray-100'
+                  : 'text-gray-500 hover:text-gray-300'
+                }`}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {mode === 'preview' ? (
+        <div
+          className={`min-h-[80px] w-full rounded-md border px-3 py-2 text-sm text-gray-200
+            prose-notes overflow-auto
+            ${changed ? 'border-amber-500/60 bg-amber-500/5' : 'border-gray-700 bg-gray-800/50'}`}
+        >
+          {value
+            ? <ReactMarkdown
+                components={{
+                  p:      ({node, ...p}) => <p className="mb-2 last:mb-0 text-sm text-gray-200" {...p} />,
+                  strong: ({node, ...p}) => <strong className="font-semibold text-gray-100" {...p} />,
+                  em:     ({node, ...p}) => <em className="italic text-gray-300" {...p} />,
+                  a:      ({node, href, ...p}) => (
+                    /^https?:\/\//i.test(href || '')
+                      ? <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline hover:text-blue-300" {...p} />
+                      : <span className="text-blue-400" {...p} />
+                  ),
+                  ul:     ({node, ...p}) => <ul className="list-disc list-inside mb-2 space-y-0.5 text-sm text-gray-300" {...p} />,
+                  ol:     ({node, ...p}) => <ol className="list-decimal list-inside mb-2 space-y-0.5 text-sm text-gray-300" {...p} />,
+                  li:     ({node, ...p}) => <li className="text-sm text-gray-300" {...p} />,
+                  code:   ({node, inline, ...p}) => inline
+                    ? <code className="font-mono text-xs bg-gray-700 text-green-300 px-1 py-0.5 rounded" {...p} />
+                    : <code className="block font-mono text-xs bg-gray-700 text-green-300 p-2 rounded my-1 overflow-x-auto" {...p} />,
+                  pre:    ({node, ...p}) => <pre className="bg-gray-700 rounded my-1 overflow-x-auto" {...p} />,
+                  h1:     ({node, ...p}) => <h1 className="text-base font-semibold text-gray-100 mb-1" {...p} />,
+                  h2:     ({node, ...p}) => <h2 className="text-sm font-semibold text-gray-100 mb-1" {...p} />,
+                  h3:     ({node, ...p}) => <h3 className="text-sm font-medium text-gray-200 mb-1" {...p} />,
+                  blockquote: ({node, ...p}) => <blockquote className="border-l-2 border-gray-600 pl-3 text-gray-400 italic my-1" {...p} />,
+                  hr:     ({node, ...p}) => <hr className="border-gray-700 my-2" {...p} />,
+                }}
+              >
+                {value}
+              </ReactMarkdown>
+            : <span className="text-gray-600 italic">No notes.</span>
+          }
+        </div>
+      ) : (
+        <textarea
+          value={value || ''}
+          onChange={e => onChange(e.target.value)}
+          placeholder={mode === 'markdown' ? 'Supports **markdown** syntax…' : 'Notes…'}
+          rows={4}
+          spellCheck={mode === 'text'}
+          className={`w-full text-sm resize-y min-h-[80px]
+            ${mode === 'markdown' ? 'font-mono' : ''}
+            ${changed ? 'border-amber-500/60' : ''}`}
+        />
+      )}
+    </div>
+  )
+}
 
 function isChanged(base, current, field) {
   if (!base) return false
@@ -14,19 +94,15 @@ function rowHasChanges(base, entry) {
   )
 }
 
-function domainOf(url) {
-  try { return new URL(url).hostname } catch { return url }
-}
-
 // ── Compact (collapsed) row ──────────────────────────────────────────────────
-function CompactRow({ name, entry, baseEntry, isNew, onExpand, onDelete }) {
+function CompactRow({ name, entry, baseEntry, isNew, nameWidth, onExpand, onDelete }) {
   const changed = isNew || rowHasChanges(baseEntry, entry)
 
   return (
     <div
       className={`grid items-center group cursor-pointer hover:bg-gray-800/40 transition-colors duration-100
         ${changed ? 'border-l-2 border-amber-500 bg-amber-500/5' : 'border-l-2 border-transparent'}`}
-      style={{ gridTemplateColumns: '160px 1fr 1fr 1fr 40px' }}
+      style={{ gridTemplateColumns: `${nameWidth}px 1fr 1fr 40px` }}
       onClick={onExpand}
     >
       {/* Name */}
@@ -58,19 +134,6 @@ function CompactRow({ name, entry, baseEntry, isNew, onExpand, onDelete }) {
           <span onClick={e => e.stopPropagation()}>
             <CopyButton value={entry.password} />
           </span>
-        )}
-      </div>
-
-      {/* URL + notes */}
-      <div className="px-3 py-2.5 min-w-0">
-        {entry.url && (
-          <div className="text-xs text-blue-400 truncate">{domainOf(entry.url)}</div>
-        )}
-        {entry.notes && (
-          <div className="text-xs text-gray-500 truncate mt-0.5">{entry.notes}</div>
-        )}
-        {!entry.url && !entry.notes && (
-          <span className="text-xs text-gray-700 italic">—</span>
         )}
       </div>
 
@@ -217,13 +280,10 @@ function ExpandedForm({ name, entry, baseEntry, isNew, onSave, onCancel, onDelet
         </div>
 
         <div className="col-span-2">
-          <label className="block text-xs font-medium text-gray-400 mb-1">Notes</label>
-          <input
-            type="text"
+          <NotesField
             value={draft.notes || ''}
-            onChange={e => setField('notes', e.target.value)}
-            placeholder="Notes…"
-            className={`w-full text-sm ${isChanged(baseEntry, draft, 'notes') ? 'border-amber-500/60' : ''}`}
+            onChange={v => setField('notes', v)}
+            changed={isChanged(baseEntry, draft, 'notes')}
           />
         </div>
       </div>
@@ -262,7 +322,7 @@ function ExpandedForm({ name, entry, baseEntry, isNew, onSave, onCancel, onDelet
 // ── Entry row (switches between compact and expanded) ────────────────────────
 export default function EntryRow({
   name, entry, baseEntry, isNew,
-  isExpanded, onExpand, onCollapse,
+  isExpanded, nameWidth, onExpand, onCollapse,
   onUpdate, onDelete
 }) {
   if (isExpanded) {
@@ -285,6 +345,7 @@ export default function EntryRow({
       entry={entry}
       baseEntry={baseEntry}
       isNew={isNew}
+      nameWidth={nameWidth}
       onExpand={onExpand}
       onDelete={onDelete}
     />
