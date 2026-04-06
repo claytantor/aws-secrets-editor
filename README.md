@@ -54,7 +54,9 @@ The `PORT` environment variable overrides the default port.
 
 ## AWS credentials
 
-Enter your credentials in the login form:
+### Option 1 — manual fields
+
+Fill in the four fields in the login form:
 
 | Field | Description |
 |-------|-------------|
@@ -63,7 +65,20 @@ Enter your credentials in the login form:
 | Region | AWS region (e.g. `us-east-1`) |
 | Secret Name | Name or ARN of the Secrets Manager secret |
 
-You can also paste a JSON object with those four fields into the JSON paste area.
+### Option 2 — paste JSON
+
+Click **Paste JSON** in the top-right of the login form and paste a JSON object with the same four fields:
+
+```json
+{
+  "accessKeyId": "AKIAIOSFODNN7EXAMPLE",
+  "secretAccessKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+  "region": "us-east-1",
+  "secretName": "my-app/credentials"
+}
+```
+
+The form validates the JSON as you type, shows a preview of the parsed values, and automatically collapses to the compact credential summary once the input is valid. This is useful when you store credentials in a local file and want to paste them in quickly without retyping.
 
 ## Secret format
 
