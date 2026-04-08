@@ -95,15 +95,12 @@ export default function App() {
     }
   }, [deleteTarget, entriesHook])
 
-  const filteredEntries = Object.entries(entriesHook.entries).filter(([name, entry]) => {
+  const filteredEntries = Object.entries(entriesHook.entries).filter(([name, value]) => {
     if (!search) return true
     const q = search.toLowerCase()
     return (
       name.toLowerCase().includes(q) ||
-      (entry.title || '').toLowerCase().includes(q) ||
-      (entry.username || '').toLowerCase().includes(q) ||
-      (entry.url || '').toLowerCase().includes(q) ||
-      (entry.notes || '').toLowerCase().includes(q)
+      (value || '').toLowerCase().includes(q)
     )
   })
 
@@ -111,6 +108,7 @@ export default function App() {
   const changeCount = entriesHook.changeCount()
 
   function handleExport() {
+    // Export as flat JSON format: {"NAME": "value"}
     const json = JSON.stringify(entriesHook.entries, null, 2)
     const blob = new Blob([json], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -207,7 +205,7 @@ export default function App() {
         <EntryTable
           entries={filteredEntries}
           baseline={entriesHook.baseline}
-          onUpdate={entriesHook.updateField}
+          onUpdate={entriesHook.updateValue}
           onDelete={(name) => setDeleteTarget(name)}
         />
       </main>

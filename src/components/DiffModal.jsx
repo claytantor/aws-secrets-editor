@@ -1,21 +1,10 @@
 import { useState, useEffect } from 'react'
 import { fetchSecret } from '../services/api.js'
 
-function DiffField({ label, from, to }) {
-  return (
-    <div className="text-xs">
-      <span className="text-gray-500">{label}: </span>
-      {from !== to ? (
-        <>
-          <span className="text-red-400 line-through">{from || '(empty)'}</span>
-          {' '}
-          <span className="text-green-400">{to || '(empty)'}</span>
-        </>
-      ) : (
-        <span className="text-gray-400">{to || '(empty)'}</span>
-      )}
-    </div>
-  )
+function maskValue(v) {
+  if (!v) return '(empty)'
+  if (v.length <= 8) return '••••••••'
+  return v.slice(0, 4) + '••••••••' + v.slice(-4)
 }
 
 export default function DiffModal({ session, localEntries, computeDiff, onConfirm, onCancel, loading }) {
@@ -28,19 +17,9 @@ export default function DiffModal({ session, localEntries, computeDiff, onConfir
       try {
         const data = await fetchSecret(session)
         setRemoteEntries(data.entries || {})
-        // Detect conflict: remote has changed compared to local baseline
-        // We compare remote keys/values vs what's in localEntries where not locally modified
         const remoteKeys = Object.keys(data.entries || {})
-        const diff = computeDiff()
-        // Simple conflict: remote has entries that differ from our baseline
-        // (baseline === what we started with; if remote != baseline, someone else saved)
-        // We surface this as a warning rather than blocking.
         const hasConflict = remoteKeys.some(k => {
-          const rEntry = data.entries[k]
-          const lEntry = localEntries[k]
-          if (!lEntry) return true // remote has something we deleted
-          // Check if remote differs from local in an unmodified field — rough heuristic
-          return false
+          return !(k in localEntries)
         })
         setConflict(hasConflict)
       } catch (err) {
@@ -91,30 +70,34 @@ export default function DiffModal({ session, localEntries, computeDiff, onConfir
             <p className="text-sm text-gray-400 text-center py-8">No changes to save.</p>
           )}
 
-          {diff.added.map(({ name, entry }) => (
+          {diff.added.map(({ name, value }) => (
             <div key={name} className="bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-3">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-1">
                 <span className="text-xs font-medium text-green-400 uppercase tracking-wider">Added</span>
                 <span className="font-mono text-sm text-green-300">{name}</span>
               </div>
-              {Object.entries(entry).filter(([, v]) => v).map(([k, v]) => (
-                <div key={k} className="text-xs text-gray-300">
-                  <span className="text-gray-500">{k}: </span>
-                  <span className={k === 'password' ? 'blur-sm hover:blur-none transition-all' : ''}>{v}</span>
-                </div>
-              ))}
+              <div className="text-xs text-gray-400 font-mono">
+                <span className="blur-sm hover:blur-none transition-all select-all">{value || '(empty)'}</span>
+              </div>
             </div>
           ))}
 
-          {diff.modified.map(({ name, changedFields }) => (
+          {diff.modified.map(({ name, from, to }) => (
             <div key={name} className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-3">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-1">
                 <span className="text-xs font-medium text-amber-400 uppercase tracking-wider">Modified</span>
                 <span className="font-mono text-sm text-amber-300">{name}</span>
               </div>
-              {Object.entries(changedFields).map(([field, { from, to }]) => (
-                <DiffField key={field} label={field} from={field === 'password' ? '••••••' : from} to={field === 'password' ? '••••••' : to} />
-              ))}
+              <div className="text-xs space-y-0.5">
+                <div>
+                  <span className="text-gray-500">from: </span>
+                  <span className="text-red-400 line-through font-mono">{maskValue(from)}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">to: </span>
+                  <span className="text-green-400 font-mono">{maskValue(to)}</span>
+                </div>
+              </div>
             </div>
           ))}
 

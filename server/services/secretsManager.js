@@ -14,6 +14,19 @@ function makeClient(credentials) {
   })
 }
 
+function normalizeEntryValue(value) {
+  // If value is an object with nested fields (old format), extract the password
+  if (typeof value === 'object' && value !== null) {
+    // Check if it's the old format with title/username/password/url/notes
+    if ('password' in value) {
+      return value.password
+    }
+    // If it's already a flat object, return as-is
+    return value
+  }
+  return value
+}
+
 export async function getSecret(credentials) {
   const client = makeClient(credentials)
   const command = new GetSecretValueCommand({
@@ -22,7 +35,16 @@ export async function getSecret(credentials) {
   const response = await client.send(command)
   const value = response.SecretString
   if (!value) throw new Error('Secret has no string value')
-  return JSON.parse(value)
+
+  const data = JSON.parse(value)
+
+  // Normalize entries - convert old nested format to flat format
+  const normalized = {}
+  for (const [key, entry] of Object.entries(data)) {
+    normalized[key] = normalizeEntryValue(entry)
+  }
+
+  return normalized
 }
 
 export async function putSecret(credentials, entries) {

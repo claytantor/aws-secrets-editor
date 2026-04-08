@@ -1,7 +1,5 @@
 import { useState } from 'react'
 
-const EMPTY_ENTRY = { title: '', username: '', password: '', url: '', notes: '' }
-
 export default function AddEntryForm({ existingNames, onAdd }) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
@@ -24,7 +22,7 @@ export default function AddEntryForm({ existingNames, onAdd }) {
       setNameError(err)
       return
     }
-    onAdd(name, { ...EMPTY_ENTRY })
+    onAdd(name, '')
     setName('')
     setNameError('')
     setOpen(false)
@@ -64,7 +62,7 @@ export default function AddEntryForm({ existingNames, onAdd }) {
           onChange={e => { setName(e.target.value); setNameError('') }}
           onBlur={handleNameBlur}
           onKeyDown={handleKeyDown}
-          placeholder="entry-name (no spaces)"
+          placeholder="KEY_NAME (no spaces)"
           className={`font-mono text-sm w-52 ${nameError ? 'border-red-500' : ''}`}
           autoFocus
         />

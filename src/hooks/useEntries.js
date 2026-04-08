@@ -3,9 +3,20 @@ import { useState, useCallback } from 'react'
 /**
  * Manages the local entry state and tracks which entries have been modified,
  * added, or deleted compared to the remote (baseline) state.
+ *
+ * Schema: Flat JSON format { [key]: "value" }
+ *
+ * Example:
+ *   {
+ *     "DATABASE_URL": "postgresql://user:pass@host/db",
+ *     "API_KEY": "sk-abc123..."
+ *   }
+ *
+ * Old nested format (with title/username/password/url/notes) is automatically
+ * normalized by the backend when fetching secrets.
  */
 export function useEntries() {
-  // Current working copy { [name]: { title, username, password, url, notes } }
+  // Current working copy { [name]: string }
   const [entries, setEntries] = useState({})
   // Snapshot of what was last fetched from remote
   const [baseline, setBaseline] = useState({})
@@ -18,16 +29,13 @@ export function useEntries() {
     setDeletedNames(new Set())
   }
 
-  const updateField = useCallback((name, field, value) => {
-    setEntries(prev => ({
-      ...prev,
-      [name]: { ...prev[name], [field]: value }
-    }))
+  const updateValue = useCallback((name, value) => {
+    setEntries(prev => ({ ...prev, [name]: value }))
   }, [])
 
-  const addEntry = useCallback((name, data) => {
+  const addEntry = useCallback((name, value = '') => {
     setEntries(prev => ({
-      [name]: data,
+      [name]: value,
       ...prev
     }))
   }, [])
@@ -56,26 +64,16 @@ export function useEntries() {
     const deleted = []
 
     for (const name of Object.keys(entries)) {
-      if (!baseline[name]) {
-        added.push({ name, entry: entries[name] })
-      } else {
-        const base = baseline[name]
-        const curr = entries[name]
-        const changedFields = {}
-        for (const field of ['title', 'username', 'password', 'url', 'notes']) {
-          if ((base[field] || '') !== (curr[field] || '')) {
-            changedFields[field] = { from: base[field] || '', to: curr[field] || '' }
-          }
-        }
-        if (Object.keys(changedFields).length > 0) {
-          modified.push({ name, changedFields })
-        }
+      if (baseline[name] === undefined) {
+        added.push({ name, value: entries[name] })
+      } else if (baseline[name] !== entries[name]) {
+        modified.push({ name, from: baseline[name], to: entries[name] })
       }
     }
 
     for (const name of deletedNames) {
-      if (baseline[name]) {
-        deleted.push({ name, entry: baseline[name] })
+      if (baseline[name] !== undefined) {
+        deleted.push({ name, value: baseline[name] })
       }
     }
 
@@ -96,7 +94,7 @@ export function useEntries() {
     entries,
     baseline,
     loadEntries,
-    updateField,
+    updateValue,
     addEntry,
     deleteEntry,
     clearTracking,

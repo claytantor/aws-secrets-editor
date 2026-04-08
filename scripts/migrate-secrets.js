@@ -4,7 +4,7 @@
  * Migrate secrets in AWS Secrets Manager
  * This script validates the current format and creates a backup version.
  * Usage:
- *   node migrate-secrets.js --profile <profile-name> --name <secret-name> [--dry-run]
+ *   node migrate-secrets.js --profile <profile-name> --name <secret-name> --region <region> [--dry-run]
  *   node migrate-secrets.js --region <region> --access-key <key> --secret-key <secret> --name <secret-name> [--dry-run]
  */
 
@@ -25,9 +25,16 @@ function parseArgs(args) {
 }
 
 function makeClient(args) {
-  const params = {
-    region: args.region || process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-east-1'
+  // Require region to be explicitly provided - don't guess
+  if (!args.region) {
+    console.error('Error: --region is required')
+    console.error('Usage:')
+    console.error('  node migrate-secrets.js --profile <profile> --name <secret-name> --region <region> [--dry-run]')
+    console.error('  node migrate-secrets.js --region <region> --access-key <key> --secret-key <secret> --name <secret-name> [--dry-run]')
+    process.exit(1)
   }
+
+  const params = { region: args.region }
 
   if (args.profile) {
     params.credentials = fromIni({ profile: args.profile })
@@ -47,8 +54,8 @@ function validateEntries(entries) {
   const errors = []
   const warnings = []
 
-  if (!entries || typeof entries !== 'object') {
-    return { valid: false, errors: ['Secret must be a JSON object'], warnings: [] }
+  if (!entries || typeof entries !== 'object' || Array.isArray(entries)) {
+    return { valid: false, errors: ['Secret must be a flat JSON object'], warnings: [] }
   }
 
   const entryNames = Object.keys(entries)
@@ -57,18 +64,9 @@ function validateEntries(entries) {
     return { valid: true, errors: [], warnings }
   }
 
-  for (const [name, entry] of Object.entries(entries)) {
-    if (!entry || typeof entry !== 'object') {
-      errors.push(`Entry "${name}" must be an object`)
-      continue
-    }
-
-    // Check for expected fields (all optional)
-    const fields = ['title', 'username', 'password', 'url', 'notes']
-    const hasAnyField = fields.some(f => entry[f] !== undefined)
-
-    if (!hasAnyField) {
-      warnings.push(`Entry "${name}" has no standard fields (title, username, password, url, notes)`)
+  for (const [name, value] of Object.entries(entries)) {
+    if (typeof value !== 'string') {
+      errors.push(`Entry "${name}" value must be a string (flat key/value format). Found: ${typeof value}`)
     }
   }
 
@@ -100,7 +98,43 @@ async function main() {
       SecretId: args.name
     })
 
-    const response = await client.send(getCommand)
+    let response
+    try {
+      response = await client.send(getCommand)
+    } catch (getErr) {
+      const getCode = getErr.name || getErr.Code || ''
+      if (getCode === 'ResourceNotFoundException') {
+        console.log('Secret does not exist, creating new secret...')
+
+        if (isDryRun) {
+          console.log('[DRY RUN] Would create new secret with {}')
+        } else {
+          try {
+            const putCommand = new PutSecretValueCommand({
+              SecretId: args.name,
+              SecretString: '{}'
+            })
+            await client.send(putCommand)
+            console.log('Created new secret with empty entries')
+          } catch (putErr) {
+            const putCode = putErr.name || putErr.Code || ''
+            if (putCode === 'InvalidRequestException' && putErr.Message?.includes('must be created in')) {
+              console.error('Error: Secret must be created first via AWS Console or AWS CLI')
+              console.error('Run this command after creating the secret:')
+              console.error(`  aws secretsmanager create-secret --name ${args.name}`)
+            } else if (putCode === 'AccessDeniedException') {
+              console.error('Error: No permission to create secrets. Check IAM policy.')
+            } else {
+              console.error(`Error creating secret: ${putErr.message}`)
+            }
+            process.exit(1)
+          }
+        }
+
+        return
+      }
+      throw getErr
+    }
 
     if (!response.SecretString) {
       console.log('Secret exists but has no string value')
@@ -170,24 +204,6 @@ async function main() {
 
   } catch (err) {
     const code = err.name || err.Code || ''
-    if (code === 'ResourceNotFoundException') {
-      console.error(`Error: Secret "${args.name}" not found`)
-      console.error('Creating new secret...')
-
-      if (isDryRun) {
-        console.log('[DRY RUN] Would create new secret with {}')
-      } else {
-        const putCommand = new PutSecretValueCommand({
-          SecretId: args.name,
-          SecretString: '{}'
-        })
-        await client.send(putCommand)
-        console.log('Created new secret with empty entries')
-      }
-
-      return
-    }
-
     if (code === 'AccessDeniedException' || code === 'UnrecognizedClientException') {
       console.error('Error: Access denied. Check your AWS credentials and permissions.')
     } else {

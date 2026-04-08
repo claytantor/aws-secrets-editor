@@ -27,7 +27,7 @@ export default function EntryTable({ entries, baseline, onUpdate, onDelete }) {
     document.addEventListener('mouseup', onMouseUp)
   }
 
-  const cols = `${nameWidth}px 1fr 1fr 40px`
+  const cols = `${nameWidth}px 1fr 40px`
 
   if (entries.length === 0) {
     return (
@@ -47,7 +47,7 @@ export default function EntryTable({ entries, baseline, onUpdate, onDelete }) {
       <div className="grid bg-gray-900 border-b border-gray-800 text-xs font-medium text-gray-400 uppercase tracking-wider"
         style={{ gridTemplateColumns: cols }}>
         <div className="relative flex items-center px-3 py-2 select-none">
-          Name
+          Key
           <div
             onMouseDown={onResizeMouseDown}
             className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize group/handle flex items-center justify-center"
@@ -56,24 +56,23 @@ export default function EntryTable({ entries, baseline, onUpdate, onDelete }) {
             <div className="w-px h-3 bg-gray-700 group-hover/handle:bg-blue-500 transition-colors" />
           </div>
         </div>
-        <div className="px-3 py-2">Title / Username</div>
-        <div className="px-3 py-2">Password</div>
+        <div className="px-3 py-2">Value</div>
         <div className="px-3 py-2" />
       </div>
 
       <div className="divide-y divide-gray-800/60">
-        {entries.map(([name, entry]) => (
+        {entries.map(([name, value]) => (
           <EntryRow
             key={name}
             name={name}
-            entry={entry}
-            baseEntry={baseline[name]}
-            isNew={!baseline[name]}
+            value={value}
+            baseValue={baseline[name]}
+            isNew={!(name in baseline)}
             isExpanded={expandedName === name}
             nameWidth={nameWidth}
             onExpand={() => setExpandedName(name)}
             onCollapse={() => setExpandedName(null)}
-            onUpdate={(field, value) => onUpdate(name, field, value)}
+            onUpdate={(val) => onUpdate(name, val)}
             onDelete={() => onDelete(name)}
           />
         ))}

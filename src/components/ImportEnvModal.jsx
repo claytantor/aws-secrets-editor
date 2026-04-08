@@ -1,13 +1,5 @@
 import { useState, useMemo } from 'react'
 
-function titleFromName(name) {
-  // ANTHROPIC_API_KEY → Anthropic Api Key
-  return name
-    .split('_')
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(' ')
-}
-
 function parseLines(text) {
   const entries = []
   const errors = []
@@ -35,7 +27,7 @@ function parseLines(text) {
       return
     }
 
-    entries.push({ name: key, password: value })
+    entries.push({ name: key, value })
   })
 
   return { entries, errors }
@@ -50,16 +42,7 @@ export default function ImportEnvModal({ existingNames, onImport, onClose }) {
   const newEntries = entries.filter(e => !existingNames.includes(e.name))
 
   function handleImport() {
-    const toAdd = entries.map(e => ({
-      name: e.name,
-      data: {
-        title: titleFromName(e.name),
-        username: '',
-        password: e.password,
-        url: '',
-        notes: ''
-      }
-    }))
+    const toAdd = entries.map(e => ({ name: e.name, data: e.value }))
     onImport(toAdd)
     onClose()
   }
@@ -72,7 +55,7 @@ export default function ImportEnvModal({ existingNames, onImport, onClose }) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
           <div>
             <h3 className="font-semibold text-gray-100">Import from env format</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Paste <code className="font-mono">NAME=value</code> pairs, one per line</p>
+            <p className="text-xs text-gray-500 mt-0.5">Paste <code className="font-mono">KEY=VALUE</code> pairs, one per line. Values will be stored as flat JSON.</p>
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-300">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -132,9 +115,9 @@ export default function ImportEnvModal({ existingNames, onImport, onClose }) {
                 >
                   <span className="font-mono text-gray-200 shrink-0">{e.name}</span>
                   <span className="font-mono text-gray-500 truncate text-right">
-                    {e.password.length > 24
-                      ? e.password.slice(0, 10) + '…' + e.password.slice(-6)
-                      : e.password}
+                    {e.value.length > 24
+                      ? e.value.slice(0, 10) + '…' + e.value.slice(-6)
+                      : e.value}
                   </span>
                 </div>
               ))}

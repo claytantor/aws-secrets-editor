@@ -3,7 +3,7 @@
 /**
  * Download secrets from AWS Secrets Manager
  * Usage:
- *   node download-secrets.js --profile <profile-name> --name <secret-name> [--output <file>]
+ *   node download-secrets.js --profile <profile-name> --name <secret-name> [--region <region>] [--output <file>]
  *   node download-secrets.js --region <region> --access-key <key> --secret-key <secret> --name <secret-name> [--output <file>]
  */
 
@@ -23,9 +23,16 @@ function parseArgs(args) {
 }
 
 function makeClient(args) {
-  const params = {
-    region: args.region || process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-east-1'
+  // Require region to be explicitly provided - don't guess
+  if (!args.region) {
+    console.error('Error: --region is required')
+    console.error('Usage:')
+    console.error('  node download-secrets.js --profile <profile> --name <secret-name> --region <region> [--output <file>]')
+    console.error('  node download-secrets.js --region <region> --access-key <key> --secret-key <secret> --name <secret-name> [--output <file>]')
+    process.exit(1)
   }
+
+  const params = { region: args.region }
 
   if (args.profile) {
     params.credentials = fromIni({ profile: args.profile })
