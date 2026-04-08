@@ -110,6 +110,20 @@ export default function App() {
   const totalCount = Object.keys(entriesHook.entries).length
   const changeCount = entriesHook.changeCount()
 
+  function handleExport() {
+    const json = JSON.stringify(entriesHook.entries, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${session.secretName}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    addToast('Exported successfully')
+  }
+
   if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
@@ -163,6 +177,18 @@ export default function App() {
           existingNames={Object.keys(entriesHook.entries)}
           onAdd={(name, data) => entriesHook.addEntry(name, data)}
         />
+        <button
+          onClick={handleExport}
+          disabled={totalCount === 0}
+          className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-200 border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-md shrink-0 disabled:bg-gray-800 disabled:text-gray-600 disabled:border-gray-800"
+          title="Export as JSON"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V3" />
+          </svg>
+          Export
+        </button>
         <button
           onClick={() => setShowImport(true)}
           className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-200 border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-md shrink-0"
